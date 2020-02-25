@@ -16,7 +16,7 @@ This program will test the LCD panel and the buttons
 LiquidCrystal lcd(2, 3, 53, 51, 50, 52);  //1, 0 
 
 HX711 scale;
-float calibration_factor = 39445.5;
+float calibration_factor = 39445.5;   //41845 was starting value
 
 // define some values used by the panel and buttons
 int lcd_key = 0;
@@ -70,12 +70,14 @@ bool edit = false;
 
 int menuScreenNum = 0;
 int entryScreenNum = 0;
+int returnFromPauseState = 0;
 
-int LDRThreshold = 95;
+int LDRThreshold = 800;
 int LDRvalue = analogRead(LDR);
 
 // function prototypes
 int determineState();
+
 void runStateMachine();
 void floorVibeDutyCycleOn();
 void floorVibeDutyCycleOff();
@@ -156,10 +158,10 @@ void setHallEffectFlag() {
 }
 void checkBoxInPlace() {
 	int LDRvalue = analogRead(LDR);
-	int elevator = analogRead(A2);
-	Serial.println(elevator);
+	//int elevator = analogRead(elevator);
+	Serial.println(analogRead(elevator));
 
-	if (elevator > 100) { //should be 0 when elevator is down
+	if (analogRead(elevator) > 100) { //should be 0 when elevator is down
 
 
 		if (LDRvalue <= LDRThreshold) {
@@ -257,7 +259,6 @@ void dutyCycleToggle() {
 	case 0: {  //its off and waiting for turning it back on
 		if ((millis() - offCycleStart) < offCycleDuration)
 		{
-
 			break;
 		}
 		//Serial.println("time to turn the floor vibes ON");
@@ -267,9 +268,7 @@ void dutyCycleToggle() {
 	}
 	case 1: {
 		if ((millis() - onCycleStart) < onCycleDuration)
-
 		{
-
 			break;
 		}
 		//Serial.println("time to shut the floor vibes off");
@@ -279,7 +278,6 @@ void dutyCycleToggle() {
 	}
 	}
 }
-
 
 int determineState() {
 	if (lastDetermineState < 6) {
@@ -295,6 +293,7 @@ int determineState() {
 	if (lastDetermineState == 8) return 9;
 	if (lastDetermineState == 9) return 10;
 	if (lastDetermineState == 10) return 1;
+	if (lastDetermineState == 11) return 11;
 	if (lastDetermineState == 13) return 13;
 }
 
@@ -308,13 +307,13 @@ void runStateMachine()
 	case FULL_ON:      //full on if under 47  top and bottom vibes mag belt scuppers open
 		//Serial.println("FULL ON reached");
 		PORTA = PORTA | B11100000;
-		analogWrite(CONTROLLINO_AO1, 255);
+		analogWrite(CONTROLLINO_AO0, 250);
 		lastDetermineState = 1;
 		lcd.setCursor(0, 0);
 		lcd.print("FULL ON         ");
 		break;
 	case DUTY_CYCLE_75:  //from 47 - 48.5    7.5v to uppers, bottoms on DC75
-		analogWrite(CONTROLLINO_AO1, 190);
+		analogWrite(CONTROLLINO_AO0, 190);
 		lcd.setCursor(0, 0);
 		lcd.print("     DC75       ");
 		//Serial.println("DC75 reached");
@@ -324,7 +323,7 @@ void runStateMachine()
 		lastDetermineState = 2;
 		break;
 	case DUTY_CYCLE_50:  //from 48.5-49.25   5v to uppers, bottoms to DC50
-		analogWrite(CONTROLLINO_AO1, 127);
+		analogWrite(CONTROLLINO_AO0, 127);
 		lcd.setCursor(0, 0);
 		lcd.print("        DC50    ");
 		//Serial.println("DC50 reached");
@@ -336,6 +335,7 @@ void runStateMachine()
 	case DUTY_CYCLE_25:
 		mainScupperClosed();
 		lcd.setCursor(0, 0);
+		analogWrite(CONTROLLINO_AO0, 70);
 		lcd.print("ScupperCloseDC25");
 		//Serial.println("DC25 reached");
 		analogWrite(CONTROLLINO_AO1, 60);
@@ -349,7 +349,7 @@ void runStateMachine()
 		lcd.setCursor(0, 0);
 		lcd.print("@50LBS--SETTLING");
 		if (oneSecondFlag == false) {
-			Serial.println("waitinG one second");
+			Serial.println("waiting one second");
 			oneSecondTimer();
 			break;
 		}
@@ -373,7 +373,7 @@ void runStateMachine()
 		checkBoxInPlace();
 		if (boxReady == false) {
 			lcd.setCursor(0, 1);
-			lcd.print("Box Not Ready");
+			lcd.print("Box  Not  Ready ");
 			break;
 		}
 		if (oneSecondFlag == false) {
@@ -426,18 +426,6 @@ void runStateMachine()
 		lcd.print("                ");
 		lastDetermineState = 10;
 		break;
-	case 11:   //PAUSE or enter Control menu
-		int returnState = PINA;
-		while (PINF >= 32) {
-			PORTA = 0;
-		lcd.setCursor(0, 0);
-		lcd.print("PauseToggleDown ");
-		lcd.setCursor(0, 1);
-		lcd.print("UpOrDown ForMenu");
-
-		}
-		PORTA = returnState;
-		break;
 
 	case 13:  //MAG FAULT
 		lcd.setCursor(0, 0);
@@ -452,17 +440,12 @@ void runStateMachine()
 
 	}
 }
-int determineKeyPressed() {
-
-}
 void controlMenu() {
-	//Serial.println("controlMenu reached");
-	//Serial.println(menuScreenNum);
 	switch (menuScreenNum)
 	{
 	case 0:
 		lcd.setCursor(0, 0);
-		lcd.print("ToggleIsDown");
+		lcd.print("PAUSEDToggleDown");
 		lcd.setCursor(0, 1);
 		lcd.print("UpOrDown ForMenu");
 		break;
@@ -471,7 +454,6 @@ void controlMenu() {
 		lcd.print("SetDumpWeight   ");
 		lcd.setCursor(0, 1);
 		lcd.print("                ");
-		//lcdButtonRead();
 		if (read_LCD_buttons() == btnSELECT) {
 			while (read_LCD_buttons() != btnLEFT) {
 				lcd.setCursor(0, 0);
@@ -494,7 +476,6 @@ void controlMenu() {
 		lcd.print("SetWtDC&VibInt25");
 		lcd.setCursor(0, 1);
 		lcd.print("                ");
-		//lcdButtonRead();
 		if (read_LCD_buttons() == btnSELECT) {
 			while (read_LCD_buttons() != btnLEFT) {
 				lcd.setCursor(0, 0);
@@ -517,13 +498,12 @@ void controlMenu() {
 		lcd.print(" AdjDC&VibeInt50");
 		lcd.setCursor(0, 1);
 		lcd.print("                ");
-		//lcdButtonRead();
 		if (read_LCD_buttons() == btnSELECT) {
 			while (read_LCD_buttons() != btnLEFT) {
 				lcd.setCursor(0, 0);
 				lcd.print("^+/v-DC&VibInt50");
 				lcd.setCursor(0, 1);
-				lcd.print("waitingBtnPress");
+				lcd.print(dcAndVibeIntensity50);
 				if (read_LCD_buttons() == btnUP) {
 					dcAndVibeIntensity50 = dcAndVibeIntensity50 + .03;
 					delay(200);
@@ -540,13 +520,12 @@ void controlMenu() {
 		lcd.print(" AdjDC&VibeInt75");
 		lcd.setCursor(0, 1);
 		lcd.print("                ");
-		//lcdButtonRead();
 		if (read_LCD_buttons() == btnSELECT) {
 			while (read_LCD_buttons() != btnLEFT) {
 				lcd.setCursor(0, 0);
 				lcd.print("^+/v-DC&VibInt75");
 				lcd.setCursor(0, 1);
-				lcd.print("waitingBtnPress");
+				lcd.print(dcAndVibeIntensity75);
 				if (read_LCD_buttons() == btnUP) {
 					dcAndVibeIntensity75 = dcAndVibeIntensity75 + .03;
 					delay(200);
@@ -563,36 +542,55 @@ void controlMenu() {
 		lcd.print(scale.get_units());
 		lcd.setCursor(0, 1);
 		lcd.print(calibration_factor);
-		while (read_LCD_buttons() != btnLEFT) {
-			lcd.setCursor(0, 0);
-			lcd.print(scale.get_units());
-			lcd.setCursor(0, 1);
-			lcd.print(calibration_factor);
-			scale.set_scale(calibration_factor);
-
-			if (read_LCD_buttons() == btnUP) {
-				calibration_factor = calibration_factor + 50;
-				delay(200);
+		if(read_LCD_buttons() == btnSELECT){
+			while (read_LCD_buttons() != btnLEFT) {
+				lcd.setCursor(0, 0);
+				lcd.print(scale.get_units());
+				lcd.setCursor(0, 1);
+				lcd.print(calibration_factor);
+				scale.set_scale(calibration_factor);
+				if (read_LCD_buttons() == btnUP) {
+					calibration_factor = calibration_factor + 50;
+					delay(200);
+				}
+				if (read_LCD_buttons() == btnDOWN) {
+					calibration_factor = calibration_factor - 50;
+					delay(200);
+				}
 			}
-			if (read_LCD_buttons() == btnDOWN) {
-				calibration_factor = calibration_factor - 50;
-				delay(200);
-			}
-
 		}
 		menuScreenNum = 0;
 		break;
 	case 6:
-		int LDRvalue = analogRead(LDR);
+		int sampling[3] = {0,0,0};
+		int sum = 0;
+		for (int thisReading = 0; thisReading < 4; thisReading++) {
+			sampling[thisReading] = analogRead(LDR);
+			sum = sampling[thisReading] + sampling[(thisReading)-1];
+			delay(50);
+		}
+
+		char reading[5];
+		double currLDRval = analogRead(LDR);
+
+
+
 		lcd.setCursor(0, 0);
-		lcd.print(LDRvalue);
-		//Serial.println(LDRvalue);
-		//lcdButtonRead();
+		lcd.print("LDRBoxLight Sens");
+		lcd.setCursor(0, 1);
+		lcd.print("currentValue");
+		lcd.setCursor(12, 1);
+		//lcd.print(reading[4], DEC);
+		dtostrf(currLDRval, 4, 0, reading); // this converts float weight into char array wtString
+		lcd.setCursor(12, 1);
+		lcd.print(reading);
 		if (read_LCD_buttons() == btnSELECT) {
 			while (read_LCD_buttons() != btnLEFT) {
 				lcd.setCursor(0, 0);
-				lcd.print("Up+Dn-LightSens");
+				lcd.print("Up+Dn- Threshold");
 				lcd.setCursor(0, 1);
+				lcd.print("AdjThreshold");
+				lcd.setCursor(13, 1);
 				lcd.print(LDRThreshold);
 				if (read_LCD_buttons() == btnUP) {
 					LDRThreshold = LDRThreshold + 1;
@@ -700,7 +698,6 @@ void controlLCDButtonRead()
 }
 void controlStateMachine() {  //     ADD SWITCH CASE FOR CONTROLS HERE!!!! NEXT  ALSO... CONTROL will KILL ALL VIBES BUT NOT CHANGE scuppers
 	PORTC = PORTC & B00011111; // this shuts off motion for control operations
-	//updateControlDisplay();    this was commented out
 	controlMenu();
 	controlLCDButtonRead();
 }
@@ -711,16 +708,6 @@ int read_LCD_buttons()
 	// my buttons when read are centered at these valies: 0, 144, 329, 504, 741
 	// we add approx 50 to those values and check to see if we are close
 	if (adc_key_in > 1000) return btnNONE; // We make this the 1st option for speed reasons since it will be the most likely result
-	// For V1.1 us this threshold
-	/*
-	if (adc_key_in < 50)   return btnRIGHT;
-	if (adc_key_in < 250)  return btnUP;
-	if (adc_key_in < 450)  return btnDOWN;
-	if (adc_key_in < 650)  return btnLEFT;
-	if (adc_key_in < 850)  return btnSELECT;
-   */
-   // For V1.0 comment the other threshold and use the one below:
-
 	if (adc_key_in < 50)   return btnRIGHT;
 	if (adc_key_in < 195)  return btnUP;
 	if (adc_key_in < 280)  return btnDOWN;
@@ -730,6 +717,8 @@ int read_LCD_buttons()
 }
 
 void lcdDisplay() {
+	lcd.setCursor(0, 1);
+	lcd.print("           ");
 	char wtString[6];
 	double weight = scale.get_units();
 	dtostrf(weight, 2, 3, wtString); // this converts float weight into char array wtString
@@ -791,9 +780,9 @@ void editParameter() {
 	}
 
 }
-
+/*
 bool controlMenuStateMachine() {
-	/*
+	
 	maybe rename because it might not need to be a state machine...
 	JUST CALL IS  chooseParameter()
 	top level function will be 2 fold...
@@ -818,7 +807,7 @@ bool controlMenuStateMachine() {
 	...
 	enter the editSubParameter() function... this would look at the index num
 
-	*/
+	
 
 
 	lcd.setCursor(0, 0);
@@ -857,43 +846,17 @@ bool controlMenuStateMachine() {
 		lcd.print("enter menu 2");
 	}
 }
+*/
+
 void loop()
 {
-	///*
-	if (PINF >= 32) {   //DONT USE ANY PORT F Pins moving forward....
-		//Control State Machine
-		PORTA = PORTA & B00011111;  //shut off ONLY the vibrators
-		//Serial.println("Control State Machine Reached");
-		//controlStateMachine();
-		controlMenuStateMachine();
-		if (choose == false) {
-			chooseParameter();
-			return;
-		}
-		if (edit == false) {
-			editParameter();
-			Serial.println("editParameter reached");
-			delay(500);
-			return;
-		}
-		choose = false;
-		edit = false;
-		lcd.clear();
+	while (PINF >= 32) {   //DONT USE ANY PORT F Pins moving forward....
+		PORTA = PORTA & B00011111;  //shut off ONLY the vibrators and belt
+		controlStateMachine();
 		return;
-
-		//Serial.println(analogRead(A0));
 	}
-	//Serial.println(digitalRead(hallEffectPin));
-	//Serial.println(analogRead(LDR));
-	//checkBoxInPlace();
-	//Serial.println(boxReady);
-	//Serial.println(analogRead(elevator));
-	//Serial.println(digitalRead(hallEffectPin));
-	//Serial.println(LDRvalue);
+	Serial.println(analogRead(LDR));
 	Serial.println(PINF);
 	lcdDisplay();
-
-	//determineState();
 	runStateMachine();
-	//*/	
 }
