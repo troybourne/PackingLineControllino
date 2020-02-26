@@ -67,6 +67,7 @@ double dcAndVibeIntensity75 = 5.00;
 double weightArrayVars[] = { dumpWeight, dcAndVibeIntensity25, dcAndVibeIntensity50, dcAndVibeIntensity75 };
 bool choose = false;
 bool edit = false;
+bool pauseActivatedFlag = 0;
 
 int menuScreenNum = 0;
 int entryScreenNum = 0;
@@ -234,7 +235,7 @@ void dumpWeightReached() {
 void dumpActuator() {
 	PORTA = PORTA | B00000010;  //opens dump flap
 	long int dumpActuatorStart = millis();
-	while (millis() - dumpActuatorStart < 2500) {
+	while (millis() - dumpActuatorStart < 3500) {
 		lcd.setCursor(0, 0);
 		lcd.print("   Dump  Open   ");
 	}
@@ -325,7 +326,7 @@ void runStateMachine()
 
 	{
 	case FULL_ON:      //full on if under 47  top and bottom vibes mag belt scuppers open
-		Serial.println("FULL ON reached");
+		//Serial.println("FULL ON reached");
 		PORTA = B11100000;
 		analogWrite(CONTROLLINO_AO0, 250);
 		lastDetermineState = 1;
@@ -353,12 +354,13 @@ void runStateMachine()
 		lastDetermineState = 3;
 		break;
 	case DUTY_CYCLE_25:
+		analogWrite(CONTROLLINO_AO0, 85);
+		analogWrite(CONTROLLINO_AO1, 60);
 		mainScupperClosed();
 		lcd.setCursor(0, 0);
-		analogWrite(CONTROLLINO_AO0, 70);
 		lcd.print("ScupperCloseDC25");
 		//Serial.println("DC25 reached");
-		analogWrite(CONTROLLINO_AO1, 60);
+		
 		onCycleDuration = dutyPercent[3];
 		offCycleDuration = dutyPercent[1];
 		dutyCycleToggle();
@@ -366,6 +368,9 @@ void runStateMachine()
 		oneSecondStart = millis();
 		break;
 	case DUMP_WEIGHT_REACHED_STOP_AND_SETTLE:
+		analogWrite(CONTROLLINO_AO0, 0);
+		analogWrite(CONTROLLINO_AO1, 0);
+		PORTA = 152;
 		lcd.setCursor(0, 0);
 		lcd.print("@50LBS--SETTLING");
 		trickleScupperClosed();
@@ -397,6 +402,7 @@ void runStateMachine()
 		if (boxReady == false) {
 			lcd.setCursor(0, 1);
 			lcd.print("Box  Not  Ready ");
+			delay(250);
 			break;
 		}
 		if (oneSecondFlag == false) {
@@ -413,7 +419,7 @@ void runStateMachine()
 		break;
 
 	case 7:  //dump flap cycle
-		dumpActuator();
+		//dumpActuator();
 		lcd.setCursor(0, 0);
 		lcd.print("Dumping Nails   ");
 		Serial.println("case 7 reached");
@@ -429,8 +435,10 @@ void runStateMachine()
 		lcd.setCursor(0, 0);
 		lcd.print(" Settling Scale ");
 		delay(1200);
-		scale.tare();
-		Serial.println("taring the scale");
+		if (scale.get_units() < 0.5) {
+			scale.tare();
+			Serial.println("taring the scale");
+		}
 		delay(250);
 		lastDetermineState = 8;
 		dumpWeightReachedFlag = false;
@@ -735,6 +743,20 @@ void controlLCDButtonRead()
 }
 void controlStateMachine() {  //     ADD SWITCH CASE FOR CONTROLS HERE!!!! NEXT  ALSO... CONTROL will KILL ALL VIBES BUT NOT CHANGE scuppers
 	PORTC = PORTC & B00011111; // this shuts off motion for control operations
+	Serial.println(read_LCD_buttons());
+	if (read_LCD_buttons() == 0) {
+		Serial.println("right button pressed");
+		long int tareStart = millis();
+		while (read_LCD_buttons() == 0) {
+			if (millis() - tareStart >= 3000) {
+				scale.tare();
+				lcd.setCursor(0, 0);
+				lcd.print("Taring the Scale");
+				delay(1500);
+
+			}
+		}
+	}
 	controlMenu();
 	controlLCDButtonRead();
 }
@@ -888,9 +910,17 @@ bool controlMenuStateMachine() {
 void loop()
 {
 	while (PINF >= 32) {   //DONT USE ANY PORT F Pins moving forward....
+		if (pauseActivatedFlag == 0) {
+			returnFromPauseState = PINA;
+			pauseActivatedFlag = 1;
+		}
 		PORTA = PORTA & B00011111;  //shut off ONLY the vibrators and belt
 		controlStateMachine();
 		return;
+	}
+	if (pauseActivatedFlag == 1) {
+		pauseActivatedFlag = 0;
+		PORTA = returnFromPauseState;
 	}
 	lcdDisplay();
 	runStateMachine();
