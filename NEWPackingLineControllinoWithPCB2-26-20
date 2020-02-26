@@ -749,11 +749,16 @@ void controlStateMachine() {  //     ADD SWITCH CASE FOR CONTROLS HERE!!!! NEXT 
 		long int tareStart = millis();
 		while (read_LCD_buttons() == 0) {
 			if (millis() - tareStart >= 3000) {
-				scale.tare();
+				mainScupperClosed();
+				trickleScupperClosed();
+				dumpActuator();
 				lcd.setCursor(0, 0);
 				lcd.print("Taring the Scale");
+				delay(3000);
+				scale.tare();
 				delay(1500);
-
+				mainScupperOpen();
+				trickleScupperOpened();
 			}
 		}
 	}
