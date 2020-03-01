@@ -4,7 +4,7 @@
 #include <Controllino.h>
 #include <LiquidCrystal.h>
 #include <HX711.h>
-using namespace std;
+//using namespace std;
 /*******************************************************
 
 This program will test the LCD panel and the buttons
@@ -60,10 +60,10 @@ int dutyPercent[] = { 8000, 6000, 4000, 2000 };
 volatile int offCycleDuration = 0;
 volatile int onCycleDuration = 0;
 int lastDetermineState = 0;
-double dumpWeight = 20.05;
-double dcAndVibeIntensity25 = 15.5;
-double dcAndVibeIntensity50 = 10.5;
-double dcAndVibeIntensity75 = 5.00;
+double dumpWeight = 50.05;
+double dcAndVibeIntensity25 = 49.5;
+double dcAndVibeIntensity50 = 48.5;
+double dcAndVibeIntensity75 = 46.00;
 int lowestIntensity = 20;
 int mediumIntensity = 35;
 int highMediumIntensity = 50;
@@ -104,7 +104,7 @@ String parameterArray[size] = { "  Dump Weight   ", "DC&VibeIntens25 ", "DC&Vibe
 
 void setup()
 {
-	Serial.begin(9600);
+	//Serial.begin(9600);
 	scale.begin(DOUT, CLK);
 	int zero_factor = scale.read_average();
 	Serial.print("zero factor: ");
@@ -116,7 +116,7 @@ void setup()
 	lcd.setCursor(0, 0);
 	lcd.print("AcornPackingLine"); // print a simple message
 	lcd.setCursor(0, 1);
-	lcd.print("  vers 2-28-20  "); // print a simple message
+	lcd.print("  vers 2-29-20  "); // print a simple message
 	delay(3000);
 	//delay(150);
 	//lcd.print(customCharUP);
