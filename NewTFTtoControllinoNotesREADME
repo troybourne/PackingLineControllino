@@ -1,3 +1,460 @@
 PackingLineMegaTFTtoControllinoController.ino
 and
 troysLandscapeButtonSimpe    both have code that will prove useful
+
+
+/*                                           PackingLineMegaTFTtoControllinoController.ino
+ * generate testcard similar to BMP
+ */
+//#include <Controllino.h>
+#include <HX711.h>
+#include <Adafruit_GFX.h>
+#if defined(_GFXFONT_H_)           //are we using the new library?
+#include <Fonts/FreeSans9pt7b.h>
+#define ADJ_BASELINE 11            //new fonts setCursor to bottom of letter
+#else
+#define ADJ_BASELINE 0             //legacy setCursor to top of letter
+#endif
+#include <MCUFRIEND_kbv.h>
+MCUFRIEND_kbv tft;
+
+#include <TouchScreen.h>
+const int XP=8,XM=A2,YP=A3,YM=9; //ID=0x9341
+const int TS_LEFT=909,TS_RT=100,TS_TOP=71,TS_BOT=900;
+
+TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
+TSPoint tp;
+
+#define MINPRESSURE 200
+#define MAXPRESSURE 1000
+uint8_t Orientation = 1;
+
+
+#define BLACK   0x0000
+#define BLUE    0x001F
+#define RED     0xF800
+#define GREEN   0x07E0
+#define CYAN    0x07FF
+#define MAGENTA 0xF81F
+#define YELLOW  0xFFE0
+#define WHITE   0xFFFF
+#define ORANGE  0xFD20
+
+#define RGB(r, g, b) (((r&0xF8)<<8)|((g&0xFC)<<3)|(b>>3))
+
+#define GREY      RGB(127, 127, 127)
+#define DARKGREY  RGB(64, 64, 64)
+#define TURQUOISE RGB(0, 128, 128)
+#define PINK      RGB(255, 128, 192)
+#define OLIVE     RGB(128, 128, 0)
+#define PURPLE    RGB(128, 0, 128)
+#define AZURE     RGB(0, 128, 255)
+#define ORANGE    RGB(255,128,64)
+ 
+//#include <stdio.h>
+#include "HX711.h"
+
+// HX711 circuit wiring
+const int LOADCELL_DOUT_PIN = 43;
+const int LOADCELL_SCK_PIN = 42;
+HX711 scale;
+float calibration_factor = -37942.00; // -37942.00 for portable scale Bar Load Cell
+float last_current_weight = 0;
+
+double dumpWeight = 50.00;
+double lowestTrickleThreshold = 49.65;
+double mediumTrickleThreshold = 49;
+double highestTrickleThreshold = 48;
+
+
+
+uint16_t ID;
+uint8_t hh, mm, ss; //containers for current time
+
+uint8_t conv2d(const char* p){ // this was for the clock function
+    uint8_t v = 0;
+    if ('0' <= *p && *p <= '9') v = *p - '0';
+    return 10 * v + *++p - '0';
+}
+
+//int setBinaryToControllino(){
+//  switch(current_weight){
+  //  case (>50)
+ // }
+//}
+
+
+void setup(void)
+{
+    Serial.begin(115200);
+    scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
+    scale.set_scale(calibration_factor);
+    
+    //int zero_factor = 3183790 // this is to reset the tare of hardware before nails
+    scale.tare();
+    tft.reset();
+    ID = tft.readID();
+    Serial.print("TFT ID = 0x");
+    Serial.println(ID, HEX);
+    //    if (ID == 0xD3D3) ID = 0x9481; // write-only shield
+    if (ID == 0xD3D3) ID = 0x9486; // write-only shield
+    tft.begin(ID);
+    tft.setRotation(1);
+    tft.fillScreen(BLACK);
+    
+#if defined(_GFXFONT_H_)
+    tft.setFont(&FreeSans9pt7b);
+#endif
+    hh = conv2d(__TIME__);
+    mm = conv2d(__TIME__ + 3);
+    ss = conv2d(__TIME__ + 6);
+
+    scale.tare();
+    tft.fillScreen(BLACK);
+    delay(150);
+
+}
+
+void loop(void)
+{
+  
+    tft.setTextSize(4);
+   float current_weight=scale.get_units(2);
+  //float scale_factor=(current_weight/12.62);  // divide the result by a known weight
+  //Serial.println(scale_factor);  // Print the scale factor to use   //-38105.00
+  Serial.println(current_weight);
+  
+  if (current_weight != last_current_weight){
+    //tft.fillScreen(BLACK);
+    tft.setCursor(80, 187 + ADJ_BASELINE); //80 was 128
+    tft.setTextColor(BLACK);
+    tft.print(last_current_weight);
+    tft.setCursor(80, 187 + ADJ_BASELINE);
+    tft.setTextColor(ORANGE);
+    tft.print(current_weight);
+    last_current_weight = current_weight;
+    return;
+  }
+  else{
+    //tft.fillScreen(BLACK);
+    return;
+  }
+ 
+  
+  
+  
+  //               troys_landscape_button_simple_tft
+  /* an alternative approach.   swap the #if 1 / 0 values to try it
+ * 
+ */
+#if 0
+
+#include <Adafruit_GFX.h>
+#include <MCUFRIEND_kbv.h>
+MCUFRIEND_kbv tft;
+#include <TouchScreen.h>
+#define MINPRESSURE 200
+#define MAXPRESSURE 1000
+
+// ALL Touch panels and wiring is DIFFERENT
+// copy-paste results from TouchScreen_Calibr_native.ino
+//const int XP = 6, XM = A2, YP = A1, YM = 7; //ID=0x9341
+//const int TS_LEFT = 907, TS_RT = 136, TS_TOP = 942, TS_BOT = 139;
+const int XP=8,XM=A2,YP=A3,YM=9; //ID=0x9341
+const int TS_LEFT=909,TS_RT=100,TS_TOP=71,TS_BOT=900;
+
+
+TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
+
+
+Adafruit_GFX_Button on_btn, off_btn;
+
+int pixel_x, pixel_y;     //Touch_getXY() updates global vars
+bool Touch_getXY(void)
+{
+    TSPoint p = ts.getPoint();
+    pinMode(YP, OUTPUT);      //restore shared pins
+    pinMode(XM, OUTPUT);
+    digitalWrite(YP, HIGH);   //because TFT control pins
+    digitalWrite(XM, HIGH);
+    bool pressed = (p.z > MINPRESSURE && p.z < MAXPRESSURE);
+    if (pressed) {
+        //pixel_x = map(p.x, TS_LEFT, TS_RT, 0, tft.width()); //.kbv makes sense to me
+        //pixel_y = map(p.y, TS_TOP, TS_BOT, 0, tft.height());
+        pixel_x = map(p.y, TS_TOP, TS_BOT, 0, tft.width()); //.kbv makes sense to me  ORIENTATION 1
+        pixel_y = map(p.x, TS_RT, TS_LEFT, 0, tft.height());
+    }
+    return pressed;
+}
+
+#define BLACK   0x0000
+#define BLUE    0x001F
+#define RED     0xF800
+#define GREEN   0x07E0
+#define CYAN    0x07FF
+#define MAGENTA 0xF81F
+#define YELLOW  0xFFE0
+#define WHITE   0xFFFF
+
+void setup(void)
+{
+    Serial.begin(9600);
+    uint16_t ID = tft.readID();
+    Serial.print("TFT ID = 0x");
+    Serial.println(ID, HEX);
+    Serial.println("Calibrate for your Touch Panel");
+    if (ID == 0xD3D3) ID = 0x9486; // write-only shield
+    tft.begin(ID);
+    tft.setRotation(1);            //PORTRAIT
+    tft.fillScreen(BLACK);
+    on_btn.initButton(&tft,  60, 200, 100, 40, WHITE, CYAN, BLACK, "ON", 2);
+    off_btn.initButton(&tft, 180, 200, 100, 40, WHITE, CYAN, BLACK, "OFF", 2);
+    on_btn.drawButton(false);
+    off_btn.drawButton(false);
+    tft.fillRect(40, 80, 160, 80, RED);
+}
+
+/*  
+ * updating multiple buttons from a list
+ * 
+ * anything more than two buttons gets repetitive
+ * 
+ * you can place button addresses in separate lists
+ * e.g. for separate menu screens
+ */
+
+// Array of button addresses to behave like a list
+Adafruit_GFX_Button *buttons[] = {&on_btn, &off_btn, NULL};
+
+/* update the state of a button and redraw as reqd
+ *
+ * main program can use isPressed(), justPressed() etc
+ */
+bool update_button(Adafruit_GFX_Button *b, bool down)
+{
+    b->press(down && b->contains(pixel_x, pixel_y));
+    if (b->justReleased())
+        b->drawButton(false);
+    if (b->justPressed())
+        b->drawButton(true);
+    return down;
+}
+
+/* most screens have different sets of buttons
+ * life is easier if you process whole list in one go
+ */
+bool update_button_list(Adafruit_GFX_Button **pb)
+{
+    bool down = Touch_getXY();
+    for (int i = 0 ; pb[i] != NULL; i++) {
+        update_button(pb[i], down);
+    }
+    return down;
+}
+
+/* compare the simplicity of update_button_list()
+ */
+void loop(void)
+{
+    update_button_list(buttons);  //use helper function
+    if (on_btn.justPressed()) {
+        tft.fillRect(40, 80, 160, 80, GREEN);
+    }
+    if (off_btn.justPressed()) {
+        tft.fillRect(40, 80, 160, 80, RED);
+    }
+}
+#endif
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  /*
+    int16_t x, y, dx, dy, radius = 108, idx;
+    uint16_t w, h, len, mask;
+    uint16_t colors[8] = { BLACK, WHITE, YELLOW, CYAN, GREEN, MAGENTA, RED, BLUE };
+    uint16_t height, width;
+    width = tft.width();
+    height = tft.height();
+    tft.fillRect(0, 0, 7, 3, WHITE);
+    tft.fillRect(313, 0, 7, 3, WHITE);
+    tft.fillRect(0, 237, 7, 3, WHITE);
+    tft.fillRect(313, 237, 7, 3, WHITE);
+    for (y = 0, w = 18, h = 3; y < 240; y += 13 * w + h) {
+        for (x = 25; x < 320 - 18; x += 2 * w) {
+            tft.fillRect(x, y, w, h, WHITE);
+        }
+    }
+    for (x = 0, w = 7, h = 18; x < 320; x += 17 * h + w) {
+        for (y = 21; y < 240 - 18; y += 2 * h) {
+            tft.fillRect(x, y, w, h, WHITE);
+        }
+    }
+    tft.fillRect(7, 3, 17 * 18, 13 * 18, GREY);
+    for (x = 7, y = 0, w = 1, h = 240; x < 320; x += 18) {
+        tft.fillRect(x, y, w, h, WHITE);
+    }
+    for (x = 0, y = 3, w = 320, h = 1; y < 240; y += 18) {
+        tft.fillRect(x, y, w, h, WHITE);
+    }
+    tft.fillRect(26, 22, 17, 99, TURQUOISE);
+    tft.fillRect(26, 120, 17, 99, PINK);
+    tft.fillRect(44, 22, 17, 35, AZURE);
+    tft.fillRect(44, 184, 17, 35, ORANGE);
+    tft.fillRect(260, 22, 17, 35, AZURE);
+    tft.fillRect(260, 184, 17, 35, ORANGE);
+    tft.fillRect(278, 22, 17, 99, OLIVE);
+    tft.fillRect(278, 120, 17, 99, PURPLE);
+
+    for (dx = radius; dx > -radius; dx--) {
+        w = sqrt(radius * radius - dx * dx);
+        y = 120 - dx;
+        dy = (y - 3) / 18;
+        mask = 7;
+        colors[0] = (dy == 3) ? DARKGREY : BLACK;
+        switch (dy) {
+            case 0:
+            case 1: idx = 1; len = 0; break;
+            case 2: idx = 0; len = 0; break;
+            case 3: idx = 0; len = 13; mask = 1; break;
+            case 4:
+            case 5: idx = 2; len = 38; break;
+            case 6:
+            case 7:
+            case 8: idx = 0; len = 0; break;
+            case 9: for (idx = 2; idx < 8; idx++) {
+                    //dy = 0xFF >> (7 - idx);
+                    dy = (idx - 2) * 51;
+                    colors[idx] = tft.color565(dy, dy, dy);
+                }
+                idx = 2; len = 38; break;
+            case 10: idx = 1; len = 0; break;
+            case 11:
+            case 12: colors[2] = YELLOW; idx = 2; len = 0; break;
+        }
+        if (len == 0)
+            tft.fillRect(160 - w, y, w * 2, 1, colors[idx]);
+
+        else {
+            if (mask == 1) idx = 1 + (w) / len;
+            dy = w % len;
+            for (x = 160 - w; x < 160 + w; idx++) {
+                tft.fillRect(x, y, dy, 1, colors[idx & mask]);
+                x += dy;
+                if (x + len > 160 + w) dy = w % len;
+                else dy = len;
+            }
+        }
+
+    }
+    for (x = 72, y = 129, dx = 5, dy = 0; dx > 0; x += 2 * dx) {
+        tft.fillRect(x, y, dx, 36, WHITE);
+        dy += dx * 2;
+        if (dy >= 36) {
+            dy = 0;
+            dx--;
+        }
+    }
+    tft.fillRect(160 - 8, 5 * 18 + 3, 17, 3 * 18, BLACK);
+    for (x = 3 * 18 + 7, y = 6 * 18 + 3, w = 1, h = 18; x < 160 + 108; x += 18) {
+        tft.fillRect(x, y, w, h, WHITE);
+    }
+    tft.fillRect(160 - 108, 120, 108 * 2, 1, WHITE);
+    tft.fillRect(160, 5 * 18 + 3, 1, 3 * 18, WHITE);
+    tft.fillRect(108, 2 * 18 + 3, 6 * 18, 18, WHITE);
+    //    tft.fillRect(108, 10 * 18 + 3, 6 * 18, 18, BLACK);
+    tft.fillRect(160 - 8, 11 * 18 + 3, 17, radius - 18*9/2, RED);
+    tft.setCursor(160 - 36, 24 + ADJ_BASELINE);
+    tft.setTextColor(BLACK);
+    tft.setTextSize(1);
+    tft.print("320x240");
+    tft.setCursor(109, 43 + ADJ_BASELINE);
+    tft.setTextColor(BLACK);
+    tft.setTextSize(1);
+    tft.print("ID=0x");
+    tft.print(tft.readID(), HEX);
+    tft.setTextColor(WHITE, BLACK);
+    //    tft.setFont(NULL);
+    //    tft.setTextSize(2);
+    while (current_weight <= 1) {
+        if (++ss > 59) {
+            ss = 0;
+            mm++;
+            if (mm > 59) {
+                mm = 0;
+                hh++;
+                if (hh > 23) hh = 0;
+            }
+        }
+        char buf[20];
+        sprintf(buf, "%02d:%02d:%02d", hh, mm, ss);
+        tft.fillRect(108, 10 * 18 + 3, 6 * 18, 18, BLACK);
+        tft.setCursor(128, 187 + ADJ_BASELINE);
+        tft.print(buf);
+        float current_weight=scale.get_units(20);
+        //delay(1000);
+    }
+    tft.fillRect(108, 10 * 18 + 3, 6 * 18, 18, BLACK);
+        tft.setCursor(128, 187 + ADJ_BASELINE);
+        tft.print(current_weight);
+
+   */ 
+}
